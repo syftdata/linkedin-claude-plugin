@@ -1,0 +1,12 @@
+{
+  "name": "linkedin-search",
+  "description": "Search your LinkedIn data export to find posts by topic, connections by title/company, and get statistics. Auto-loads from watch folder with JIT SQLite indexing.",
+  "version": "1.0.0",
+  "author": {
+    "name": "isb"
+  },
+  "homepage": "https://github.com/isb/linkedin-search-plugin",
+  "repository": "https://github.com/isb/linkedin-search-plugin",
+  "license": "MIT",
+  "keywords": ["linkedin", "search", "connections", "posts", "sqlite", "personal-data"]
+}
