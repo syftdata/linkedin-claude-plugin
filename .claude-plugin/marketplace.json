@@ -1,0 +1,10 @@
+{
+  "name": "linkedin-search",
+  "description": "LinkedIn Search Plugin Marketplace",
+  "plugins": [
+    {
+      "name": "linkedin-search",
+      "source": "."
+    }
+  ]
+}
