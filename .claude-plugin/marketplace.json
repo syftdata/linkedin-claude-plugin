@@ -1,7 +1,9 @@
 {
   "name": "linkedin-search",
   "description": "LinkedIn Search Plugin Marketplace",
-  "owner": "syftdata",
+  "owner": {
+    "name": "syftdata"
+  },
   "plugins": [
     {
       "name": "linkedin-search",
