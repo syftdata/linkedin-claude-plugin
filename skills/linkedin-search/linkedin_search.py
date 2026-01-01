@@ -5,13 +5,30 @@ import glob
 import zipfile
 import tempfile
 import sys
+import subprocess
 from pathlib import Path
 from argparse import ArgumentParser
-import sqlite_utils
 
 # Constants
 WATCH_FOLDER = Path.home() / ".linkedin-exports"
 DB_PATH = Path.home() / ".linkedin-search" / "data.db"
+
+
+def ensure_dependencies():
+    """Auto-install sqlite-utils if missing"""
+    try:
+        import sqlite_utils
+        return sqlite_utils
+    except ImportError:
+        print("📦 Installing sqlite-utils (first-time setup)...")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "sqlite-utils"])
+        import sqlite_utils
+        print("✓ sqlite-utils installed")
+        return sqlite_utils
+
+
+# Auto-install on import
+sqlite_utils = ensure_dependencies()
 
 
 def ensure_folders_exist():
