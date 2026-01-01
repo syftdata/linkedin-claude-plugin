@@ -3,10 +3,10 @@
   "description": "Search your LinkedIn data export to find posts by topic, connections by title/company, and get statistics. Auto-loads from watch folder with JIT SQLite indexing.",
   "version": "1.0.0",
   "author": {
-    "name": "isb"
+    "name": "syftdata"
   },
-  "homepage": "https://github.com/isb/linkedin-search-plugin",
-  "repository": "https://github.com/isb/linkedin-search-plugin",
+  "homepage": "https://github.com/syftdata/linkedin-claude-plugin",
+  "repository": "https://github.com/syftdata/linkedin-claude-plugin",
   "license": "MIT",
   "keywords": ["linkedin", "search", "connections", "posts", "sqlite", "personal-data"]
 }
