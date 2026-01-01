@@ -19,15 +19,24 @@ Search your LinkedIn data export to find posts, connections, and statistics.
 /plugin install linkedin-search
 ```
 
-### 3. Add your LinkedIn export
+### 3. Ask a question
 
-Ask Claude any LinkedIn question (e.g., "search my LinkedIn posts"). This creates the watch folder automatically. Then copy your export:
+Just ask Claude anything about your LinkedIn data. On first run, it will prompt you for the path to your export ZIP:
 
-```bash
-cp ~/Downloads/Complete_LinkedInDataExport_*.zip ~/.linkedin-exports/
+```
+📂 No LinkedIn exports found in ~/.linkedin-exports/
+
+Please provide the path to your LinkedIn export ZIP file.
+
+Path to LinkedIn export ZIP: ~/Downloads/Complete_LinkedInDataExport_08-27-2025.zip
+
+📦 Copying to ~/.linkedin-exports/...
+✓ Export copied!
+🔄 Loading...
+✓ Database ready!
 ```
 
-Ask again and you're ready!
+That's it - you're ready to search!
 
 ## Usage
 

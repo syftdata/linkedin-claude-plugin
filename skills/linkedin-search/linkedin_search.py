@@ -188,6 +188,42 @@ def load_export_to_sqlite(zip_path, db_path):
         sys.exit(1)
 
 
+def prompt_for_export():
+    """Prompt user to provide path to LinkedIn export"""
+    print("📂 No LinkedIn exports found in ~/.linkedin-exports/")
+    print("")
+    print("Please provide the path to your LinkedIn export ZIP file.")
+    print("(Download from: LinkedIn Settings → Data Privacy → Get a copy of your data)")
+    print("")
+
+    path = input("Path to LinkedIn export ZIP: ").strip()
+
+    # Handle quoted paths and ~ expansion
+    path = path.strip('"').strip("'")
+    path = os.path.expanduser(path)
+
+    if not path:
+        print("❌ No path provided")
+        sys.exit(1)
+
+    if not os.path.exists(path):
+        print(f"❌ File not found: {path}")
+        sys.exit(1)
+
+    if not path.endswith('.zip'):
+        print("❌ File must be a ZIP archive")
+        sys.exit(1)
+
+    # Copy to watch folder
+    import shutil
+    dest = WATCH_FOLDER / Path(path).name
+    print(f"📦 Copying to {dest}...")
+    shutil.copy2(path, dest)
+    print("✓ Export copied!")
+
+    return str(dest)
+
+
 def ensure_db_current():
     """Check if DB needs refresh, load latest export if needed"""
     ensure_folders_exist()
@@ -195,11 +231,7 @@ def ensure_db_current():
     # Find latest export
     latest_export = find_latest_export()
     if not latest_export:
-        print("❌ No LinkedIn exports found in ~/.linkedin-exports/")
-        print("💡 Setup:")
-        print("   mkdir -p ~/.linkedin-exports")
-        print(f"   cp ~/Downloads/your-export.zip ~/.linkedin-exports/")
-        sys.exit(1)
+        latest_export = prompt_for_export()
 
     latest_time = os.path.getmtime(latest_export)
     db_time = get_db_timestamp()
