@@ -364,7 +364,7 @@ def find_connections(title, company):
         print("No connections found")
         return
 
-    query = "SELECT [First Name], [Last Name], Position, Company FROM connections WHERE 1=1"
+    query = "SELECT [First Name], [Last Name], Position, Company, URL FROM connections WHERE 1=1"
     params = []
 
     if title:
@@ -389,9 +389,10 @@ def find_connections(title, company):
         return
 
     print(f"\nFound {len(results)} connection(s):\n")
-    for i, (first, last, pos, comp) in enumerate(results, 1):
+    for i, (first, last, pos, comp, url) in enumerate(results, 1):
         print(f"{i}. {first} {last}")
-        print(f"   {pos} at {comp}\n")
+        print(f"   {pos} at {comp}")
+        print(f"   {url}\n")
 
 
 def search_connections_keywords(keywords):
@@ -402,25 +403,26 @@ def search_connections_keywords(keywords):
         print("No connections found")
         return
 
-    results = db.execute("SELECT [First Name], [Last Name], Position, Company FROM connections").fetchall()
+    results = db.execute("SELECT [First Name], [Last Name], Position, Company, URL FROM connections").fetchall()
 
     filtered = []
-    for first, last, pos, comp in results:
+    for first, last, pos, comp, url in results:
         combined = (pos or "") + " " + (comp or "")
         combined_lower = combined.lower()
 
         # Check if all keywords match
         if all(kw.lower() in combined_lower for kw in keywords):
-            filtered.append((first, last, pos, comp))
+            filtered.append((first, last, pos, comp, url))
 
     if not filtered:
         print(f"No connections found with keywords: {', '.join(keywords)}")
         return
 
     print(f"\nFound {len(filtered)} connection(s) matching keywords {keywords}:\n")
-    for i, (first, last, pos, comp) in enumerate(filtered, 1):
+    for i, (first, last, pos, comp, url) in enumerate(filtered, 1):
         print(f"{i}. {first} {last}")
-        print(f"   {pos} at {comp}\n")
+        print(f"   {pos} at {comp}")
+        print(f"   {url}\n")
 
 
 def search_comments(query):
