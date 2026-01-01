@@ -21,12 +21,13 @@ Search your LinkedIn data export to find posts, connections, and statistics.
 
 ### 3. Add your LinkedIn export
 
+Ask Claude any LinkedIn question (e.g., "search my LinkedIn posts"). This creates the watch folder automatically. Then copy your export:
+
 ```bash
-mkdir -p ~/.linkedin-exports
 cp ~/Downloads/Complete_LinkedInDataExport_*.zip ~/.linkedin-exports/
 ```
 
-That's it! Dependencies install automatically on first use.
+Ask again and you're ready!
 
 ## Usage
 
