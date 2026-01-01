@@ -20,33 +20,53 @@ def find_or_create_venv():
     venv_dir = script_dir / ".venv"
     venv_python = venv_dir / "bin" / "python"
 
-    # If venv already exists, return it
+    # If venv already exists, verify it works
     if venv_python.exists():
-        return str(venv_python)
+        try:
+            result = subprocess.run(
+                [str(venv_python), "-c", "import sys; print(sys.version)"],
+                capture_output=True,
+                timeout=5
+            )
+            if result.returncode == 0:
+                return str(venv_python)
+        except Exception:
+            pass  # Venv exists but is broken, recreate it
 
-    # Create venv using uv if available, otherwise use venv module
+    # Create venv using uv if available
     print("🔧 Creating virtual environment (first-time setup)...")
     try:
-        # Try uv first (faster and more reliable)
         result = subprocess.run(
             ["uv", "venv", str(venv_dir)],
             capture_output=True,
             text=True
         )
-        if result.returncode == 0:
+        if result.returncode == 0 and venv_python.exists():
             print("✓ Virtual environment created with uv")
+            # Ensure pip is available in uv-created venv
+            try:
+                subprocess.run(
+                    ["uv", "pip", "install", "--python", str(venv_python), "pip"],
+                    capture_output=True,
+                    timeout=30
+                )
+            except Exception:
+                pass  # pip might already be there
             return str(venv_python)
-    except FileNotFoundError:
-        pass  # uv not available, try venv module
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass  # uv not available or timed out
 
+    # Fallback to Python's venv module
     try:
         import venv
         venv.create(venv_dir, with_pip=True)
-        print("✓ Virtual environment created")
-        return str(venv_python)
+        if venv_python.exists():
+            print("✓ Virtual environment created")
+            return str(venv_python)
     except Exception as e:
-        print(f"⚠️  Could not create venv: {e}")
-        return None
+        print(f"⚠️  Could not create venv with venv module: {e}")
+
+    return None
 
 
 def is_venv():
@@ -64,9 +84,11 @@ def reexec_in_venv():
     venv_python = find_or_create_venv()
     if venv_python and Path(venv_python).exists():
         # Re-execute this script with venv Python
-        os.execv(venv_python, [venv_python] + sys.argv)
-    else:
-        print("⚠️  Running without virtual environment")
+        try:
+            os.execv(venv_python, [venv_python] + sys.argv)
+        except Exception as e:
+            print(f"⚠️  Could not re-exec in venv: {e}")
+            print("   Continuing with current Python")
 
 
 # Re-exec in venv before importing dependencies
@@ -74,16 +96,51 @@ reexec_in_venv()
 
 
 def ensure_dependencies():
-    """Auto-install sqlite-utils if missing"""
+    """Auto-install sqlite-utils if missing with multiple fallback strategies"""
     try:
         import sqlite_utils
         return sqlite_utils
     except ImportError:
         print("📦 Installing sqlite-utils...")
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "sqlite-utils"])
-        import sqlite_utils
-        print("✓ sqlite-utils installed")
-        return sqlite_utils
+
+        # Strategy 1: Try regular pip install (works in venv)
+        try:
+            subprocess.check_call(
+                [sys.executable, "-m", "pip", "install", "-q", "sqlite-utils"],
+                timeout=60
+            )
+            import sqlite_utils
+            print("✓ sqlite-utils installed")
+            return sqlite_utils
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            pass
+
+        # Strategy 2: Try uv pip (if available and in venv)
+        if is_venv():
+            try:
+                subprocess.check_call(
+                    ["uv", "pip", "install", "--python", sys.executable, "sqlite-utils"],
+                    timeout=60
+                )
+                import sqlite_utils
+                print("✓ sqlite-utils installed via uv")
+                return sqlite_utils
+            except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+                pass
+
+        # Strategy 3: Try pip with --user flag (last resort, works on most systems)
+        try:
+            subprocess.check_call(
+                [sys.executable, "-m", "pip", "install", "--user", "-q", "sqlite-utils"],
+                timeout=60
+            )
+            import sqlite_utils
+            print("✓ sqlite-utils installed to user directory")
+            return sqlite_utils
+        except Exception as e:
+            print(f"❌ Could not install sqlite-utils: {e}")
+            print("   Please install manually: pip install sqlite-utils")
+            sys.exit(1)
 
 
 # Auto-install on import
