@@ -33,10 +33,10 @@ Ask again and you're ready!
 
 Just ask Claude:
 
-- "Did I write about AI?"
-- "Find GTM agency founders I know"
-- "Am I connected to anyone at Microsoft?"
-- "How many posts have I made?"
+- "Find me the link to the post I wrote about inverted funnels for GTM"
+- "Who are the GTM agency founders in my network?"
+- "Am I connected to anyone in product management at Microsoft?"
+- "What did I write about AI-powered sales tools last year?"
 
 ## Updating Data
 
