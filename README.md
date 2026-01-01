@@ -15,7 +15,7 @@ Search your LinkedIn data export to find posts, connections, and statistics.
 ### 2. Install plugin
 
 ```bash
-/plugin marketplace add https://github.com/syftdata/linkedin-claude-plugin
+/plugin add https://github.com/syftdata/linkedin-claude-plugin
 /plugin install linkedin-search
 ```
 
