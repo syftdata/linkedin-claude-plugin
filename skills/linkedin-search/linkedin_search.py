@@ -14,13 +14,72 @@ WATCH_FOLDER = Path.home() / ".linkedin-exports"
 DB_PATH = Path.home() / ".linkedin-search" / "data.db"
 
 
+def find_or_create_venv():
+    """Find or create virtual environment relative to script location"""
+    script_dir = Path(__file__).parent
+    venv_dir = script_dir / ".venv"
+    venv_python = venv_dir / "bin" / "python"
+
+    # If venv already exists, return it
+    if venv_python.exists():
+        return str(venv_python)
+
+    # Create venv using uv if available, otherwise use venv module
+    print("🔧 Creating virtual environment (first-time setup)...")
+    try:
+        # Try uv first (faster and more reliable)
+        result = subprocess.run(
+            ["uv", "venv", str(venv_dir)],
+            capture_output=True,
+            text=True
+        )
+        if result.returncode == 0:
+            print("✓ Virtual environment created with uv")
+            return str(venv_python)
+    except FileNotFoundError:
+        pass  # uv not available, try venv module
+
+    try:
+        import venv
+        venv.create(venv_dir, with_pip=True)
+        print("✓ Virtual environment created")
+        return str(venv_python)
+    except Exception as e:
+        print(f"⚠️  Could not create venv: {e}")
+        return None
+
+
+def is_venv():
+    """Check if currently running in a virtual environment"""
+    return hasattr(sys, 'real_prefix') or (
+        hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix
+    )
+
+
+def reexec_in_venv():
+    """Re-execute script in venv if not already running in one"""
+    if is_venv():
+        return  # Already in venv, continue normally
+
+    venv_python = find_or_create_venv()
+    if venv_python and Path(venv_python).exists():
+        # Re-execute this script with venv Python
+        os.execv(venv_python, [venv_python] + sys.argv)
+    else:
+        print("⚠️  Running without virtual environment")
+
+
+# Re-exec in venv before importing dependencies
+reexec_in_venv()
+
+
 def ensure_dependencies():
     """Auto-install sqlite-utils if missing"""
     try:
         import sqlite_utils
         return sqlite_utils
     except ImportError:
-        print("📦 Installing sqlite-utils (first-time setup)...")
+        print("📦 Installing sqlite-utils...")
         subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "sqlite-utils"])
         import sqlite_utils
         print("✓ sqlite-utils installed")
