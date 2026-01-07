@@ -1,7 +1,7 @@
 ---
 name: linkedin-search
 description: Search your LinkedIn posts/shares by topic, find connections by title or company, and get LinkedIn statistics. Use when analyzing your LinkedIn data, finding specific connections, or reviewing past posts and shares.
-allowed-tools: Read, Bash(python:*)
+allowed-tools: Read, Bash(python3:*)
 ---
 
 # LinkedIn Search
@@ -23,22 +23,22 @@ That's it! Dependencies install automatically on first use.
 
 **Search posts/shares:**
 ```bash
-python ${CLAUDE_PLUGIN_ROOT}/skills/linkedin-search/linkedin_search.py search-shares --query "AI"
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/linkedin-search/linkedin_search.py search-shares --query "AI"
 ```
 
 **Find connections:**
 ```bash
-python ${CLAUDE_PLUGIN_ROOT}/skills/linkedin-search/linkedin_search.py find-connections --title "founder" --company "microsoft"
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/linkedin-search/linkedin_search.py find-connections --title "founder" --company "microsoft"
 ```
 
 **Multi-keyword search:**
 ```bash
-python ${CLAUDE_PLUGIN_ROOT}/skills/linkedin-search/linkedin_search.py search-connections-keywords --keywords founder gtm
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/linkedin-search/linkedin_search.py search-connections-keywords --keywords founder gtm
 ```
 
 **Get statistics:**
 ```bash
-python ${CLAUDE_PLUGIN_ROOT}/skills/linkedin-search/linkedin_search.py stats
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/linkedin-search/linkedin_search.py stats
 ```
 
 ## How it works
