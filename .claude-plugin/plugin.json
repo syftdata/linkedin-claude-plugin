@@ -1,12 +1,12 @@
 {
-  "name": "linkedin-search",
-  "description": "Search your LinkedIn data export to find posts by topic, connections by title/company, and get statistics. Auto-loads from watch folder with JIT SQLite indexing.",
-  "version": "1.0.0",
+  "name": "linkedin",
+  "description": "LinkedIn bot for Claude and other agents: ingest your LinkedIn data export (larger archive), search posts and connections, and build guided network cleanup lists from Connections + messages. Local SQLite, standard-library Python, never acts on your account.",
+  "version": "2.0.0",
   "author": {
     "name": "syftdata"
   },
   "homepage": "https://github.com/syftdata/linkedin-claude-plugin",
   "repository": "https://github.com/syftdata/linkedin-claude-plugin",
   "license": "MIT",
-  "keywords": ["linkedin", "search", "connections", "posts", "sqlite", "personal-data"]
+  "keywords": ["linkedin", "linkedin-export", "connections", "messages", "network-cleanup", "search", "posts", "sqlite", "personal-data", "agents"]
 }
