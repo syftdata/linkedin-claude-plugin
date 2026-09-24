@@ -6,7 +6,8 @@ All notable changes to the LinkedIn plugin (formerly LinkedIn Search) are docume
 
 ### Changed
 - **Renamed from `linkedin-search` to `linkedin`**: a LinkedIn bot for Claude and other agents, not search only.
-  Plugin and marketplace name are now `linkedin`.
+  Plugin and marketplace name are now `linkedin`. Two skills: `linkedin-search` (search, stats, loading an export)
+  and the new `linkedin-cleanup`.
 - CLI moved to `skills/linkedin/linkedin.py`. `skills/linkedin-search/linkedin_search.py` is a thin wrapper, so v1
   commands and callers keep working.
 - Standard library only: no virtualenv bootstrap, no `sqlite-utils` install.

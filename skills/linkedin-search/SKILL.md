@@ -1,10 +1,10 @@
 ---
-name: linkedin
+name: linkedin-search
 description: Your LinkedIn data export as a queryable database. Search your posts and comments, find connections by title or company, see who you message, and get stats. Use for any question about the user's own LinkedIn activity or network. For pruning connections, use the linkedin-cleanup skill.
 allowed-tools: Read, Bash(python3:*)
 ---
 
-# LinkedIn
+# LinkedIn search
 
 Works on the user's LinkedIn data export (the **larger data archive** ZIP), loaded into a local SQLite database.
 No scraping, no LinkedIn login, standard-library Python only.
@@ -48,4 +48,4 @@ For "who haven't I talked to", "clean up my network", "I'm near the 30,000 cap":
 "Find GTM agency founders" → `search-connections-keywords --keywords founder gtm`
 "How many connections do I have?" → `stats`
 
-`skills/linkedin-search/linkedin_search.py` still works and forwards to this CLI.
+`linkedin_search.py` in this folder is the v1 entry point and still forwards to this CLI.

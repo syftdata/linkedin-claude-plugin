@@ -4,13 +4,13 @@ Turn your LinkedIn data export into something an agent can work with: search you
 you actually talk to, and build a guided cleanup list of connections to consider removing. Everything runs locally
 on your export (SQLite, standard-library Python). Nothing scrapes LinkedIn, logs in, or acts on your account.
 
-Formerly `linkedin-search`. Search still works exactly as before; see [Upgrading from linkedin-search](#upgrading-from-linkedin-search).
+The plugin was `linkedin-search`; the search skill keeps that name and works exactly as before; see [Upgrading from linkedin-search](#upgrading-from-linkedin-search).
 
 ## Skills
 
 | Skill | Use it for |
 |---|---|
-| `linkedin` | Search posts and comments, find connections by title or company, stats, loading a new export |
+| `linkedin-search` | Search posts and comments, find connections by title or company, stats, loading a new export |
 | `linkedin-cleanup` | Guided network cleanup: profiles your network, offers groups with real counts, asks which to remove and who to keep, writes a ranked CSV. Never removes anyone |
 
 ## Setup
