@@ -32,18 +32,23 @@ python3 $L network-profile --json
 ```
 
 Tell the user, in three or four lines: total connections and headroom under 30,000, how many were connected 5+
-years ago, how many they have never messaged, and the date range of the messages loaded.
+years ago, how many they have never messaged, and the date range of the messages loaded. If
+`connections_without_url` is above 0, say that many connections have no profile URL in the export and can't be
+listed (LinkedIn blanks it for some members).
 
 ## Step 2, ask which group
 
 Offer the `presets` from the profile, **each with its count**, plus a custom option. Only presets with people in
-them appear. Use AskUserQuestion when available (one question, the presets as options); otherwise numbered options.
+them appear. Use AskUserQuestion when available: it takes at most 4 options, so show the 4 most useful presets for
+this user and say in the question that the others and custom thresholds can be typed under "Other". Otherwise use
+numbered options.
 
 | Preset | Means |
 |---|---|
 | `old-never-messaged` | Connected 5+ years ago and never messaged 1:1 |
 | `old-quiet` | Connected 2+ years ago and no DM in the last 3 years (or never) |
 | `never-messaged` | Never messaged 1:1, any connection age |
+| `never-replied` | They messaged you 1:1 and you never wrote back, usually a pitch |
 | `recent-never-messaged` | Connected in the last 12 months and never messaged (accepted, never followed up) |
 | custom | Their own thresholds: `--connected-before 5y`, `--connected-after 12m`, `--no-dm-since 3y`, `--never-messaged` |
 

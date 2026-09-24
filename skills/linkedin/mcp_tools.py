@@ -34,6 +34,7 @@ TOOLS = [
          "connected_after": {"type": "string"},
          "no_dm_since": {"type": "string"},
          "never_messaged": {"type": "boolean"},
+         "never_replied": {"type": "boolean"},
          "count_group_as_dm": {"type": "boolean"},
          "keep_company": {"type": "array", "items": {"type": "string"}},
          "keep_title": {"type": "array", "items": {"type": "string"}},
@@ -64,12 +65,13 @@ def network_profile(as_of=None):
 
 
 def cleanup_candidates(preset=None, connected_before=None, connected_after=None, no_dm_since=None,
-                       never_messaged=False, count_group_as_dm=False, keep_company=None, keep_title=None,
+                       never_messaged=False, never_replied=False, count_group_as_dm=False, keep_company=None, keep_title=None,
                        only_title=None, limit=None, as_of=None):
     archive.ensure_db_current(log=lambda m: None)
     over = dict(connected_before_days=cleanup.parse_duration(connected_before),
                 connected_after_days=cleanup.parse_duration(connected_after),
                 no_dm_since_days=cleanup.parse_duration(no_dm_since), never_messaged=never_messaged,
+                never_replied=never_replied,
                 count_group_as_dm=count_group_as_dm, keep_company=keep_company or [], keep_title=keep_title or [],
                 only_title=only_title or [], limit=limit)
     crit = cleanup.Criteria.from_preset(preset, **over) if preset else cleanup.Criteria(**over)

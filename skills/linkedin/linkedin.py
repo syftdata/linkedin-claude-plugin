@@ -97,12 +97,14 @@ def cmd_network_profile(a):
     m = prof["messages"]
     print(f"\n=== Your network (as of {prof['as_of']}) ===\n")
     print(f"Connections: {prof['connections_total']:,} ({prof['headroom']:,} left before LinkedIn's {prof['cap']:,} cap)")
+    if prof["connections_without_url"]:
+        print(f"  {prof['connections_without_url']:,} have no profile URL in the export and can't be matched or listed")
     for k, v in prof["connected_on_age"].items():
         if v:
             print(f"  connected {k}: {v:,}")
     print(f"Never messaged 1:1: {prof['never_messaged_1to1']:,} (of which only in group chats: {prof['only_group_chats']:,})")
     print(f"Last DM over 1 year ago: {prof['last_dm_over_1_year']:,}  |  over 3 years: {prof['last_dm_over_3_years']:,}")
-    print(f"Messaged in the last year: {prof['messaged_in_last_year']:,}")
+    print(f"Messaged in the last year: {prof['messaged_in_last_year']:,}  |  they wrote, you never replied: {prof['never_replied']:,}")
     if m["loaded"]:
         print(f"Messages loaded: {m['total']:,} ({m['earliest'][:10]} to {m['latest'][:10]})")
     else:
@@ -118,7 +120,7 @@ def _criteria(a):
         connected_before_days=cleanup.parse_duration(a.connected_before or a.older_than),
         connected_after_days=cleanup.parse_duration(a.connected_after),
         no_dm_since_days=cleanup.parse_duration(a.no_dm_since or a.no_dm_older_than),
-        never_messaged=a.never_messaged, count_group_as_dm=a.count_group_as_dm,
+        never_messaged=a.never_messaged, never_replied=a.never_replied, count_group_as_dm=a.count_group_as_dm,
         keep_company=a.keep_company or [], keep_title=a.keep_title or [], only_title=a.only_title or [],
         limit=a.limit)
     if a.preset:
@@ -195,6 +197,7 @@ def build_parser():
     s.add_argument("--no-dm-since", help="never messaged, or last DM at least this long ago, e.g. 3y")
     s.add_argument("--no-dm-older-than", help="alias of --no-dm-since")
     s.add_argument("--never-messaged", action="store_true", help="no 1:1 DM ever")
+    s.add_argument("--never-replied", action="store_true", help="they messaged you 1:1 and you never replied")
     s.add_argument("--count-group-as-dm", action="store_true", help="a group-chat message counts as talking")
     s.add_argument("--keep-company", action="append", help="never list companies containing this (repeatable)")
     s.add_argument("--keep-title", action="append", help="never list titles containing this (repeatable)")

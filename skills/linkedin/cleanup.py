@@ -27,6 +27,9 @@ PRESETS = {
     "never-messaged": {
         "label": "Never messaged at all, any age",
         "never_messaged": True},
+    "never-replied": {
+        "label": "They messaged you and you never replied (usually a pitch)",
+        "never_replied": True},
     "recent-never-messaged": {
         "label": "Connected in the last 12 months and never messaged (accepted but never followed up)",
         "connected_after_days": 365, "never_messaged": True},
@@ -52,6 +55,7 @@ class Criteria:
     connected_after_days: int = None     # connected at most this many days ago
     no_dm_since_days: int = None         # never messaged, or last 1:1 DM at least this many days ago
     never_messaged: bool = False         # no 1:1 DM ever
+    never_replied: bool = False          # they wrote 1:1, you never wrote back
     count_group_as_dm: bool = False      # treat group-chat messages as a DM
     keep_company: list = field(default_factory=list)   # never list anyone whose Company contains one of these
     keep_title: list = field(default_factory=list)     # never list anyone whose Position contains one of these
@@ -61,7 +65,7 @@ class Criteria:
 
     def is_empty(self):
         return not any([self.connected_before_days, self.connected_after_days, self.no_dm_since_days,
-                        self.never_messaged, self.only_title])
+                        self.never_messaged, self.never_replied, self.only_title])
 
     @classmethod
     def from_preset(cls, name, **overrides):
@@ -90,8 +94,8 @@ def load_people(as_of=None):
     sql = """SELECT c.slug, c.first_name, c.last_name, c.url, c.company, c.position, c.connected_on, c.connected_on_raw,
                     {dm}
              FROM connections_index c {join}""".format(
-        dm="d.dm_count, d.last_dm_at, d.last_dm_direction, d.last_dm_preview, d.group_count, d.last_group_at" if has_dm
-        else "0, NULL, NULL, NULL, 0, NULL",
+        dm="d.dm_count, d.last_dm_at, d.last_dm_direction, d.last_dm_preview, d.group_count, d.last_group_at, "
+           "d.out_count, d.in_count" if has_dm else "0, NULL, NULL, NULL, 0, NULL, 0, 0",
         join="LEFT JOIN last_dm d ON d.counterpart_slug = c.slug" if has_dm else "")
     people = []
     for r in con.execute(sql).fetchall():
@@ -102,6 +106,7 @@ def load_people(as_of=None):
             "last_dm_preview": r[11] or "", "group_count": r[12] or 0, "last_group_at": r[13] or "",
             "days_since_connect": _days_between(r[6], as_of), "days_since_dm": _days_between(r[9], as_of),
             "days_since_group": _days_between(r[13], as_of),
+            "out_count": r[14] or 0, "in_count": r[15] or 0,
         })
     return people
 
@@ -144,6 +149,8 @@ def reasons(p, crit):
     else:
         d = _days_since_any(p, crit)
         out.append(f"last DM {d / 365:.1f} years ago ({(p['last_dm_at'] or p['last_group_at'])[:10]})")
+        if p["in_count"] and not p["out_count"]:
+            out.append(f"they wrote {p['in_count']}x, you never replied")
     return out
 
 
@@ -155,6 +162,8 @@ def matches(p, crit):
         return False
     messaged = _messaged(p, crit)
     if crit.never_messaged and messaged:
+        return False
+    if crit.never_replied and not (p["in_count"] and not p["out_count"]):
         return False
     if crit.no_dm_since_days is not None and messaged:
         d = _days_since_any(p, crit)
@@ -222,6 +231,8 @@ def describe(crit, as_of=None):
         parts.append(f"connected within the last {crit.connected_after_days} days (since {_ago(crit.connected_after_days, as_of)})")
     if crit.never_messaged:
         parts.append("never messaged" + (" (group chats count)" if crit.count_group_as_dm else " 1:1"))
+    if crit.never_replied:
+        parts.append("they messaged you and you never replied")
     if crit.no_dm_since_days is not None:
         parts.append(f"no DM in the last {_years(crit.no_dm_since_days)} years (since {_ago(crit.no_dm_since_days, as_of)})")
     if crit.only_title:
@@ -256,7 +267,9 @@ def network_profile(as_of=None):
             presets.append({"preset": name, "label": spec["label"], "count": n})
     return {
         "as_of": as_of.isoformat(),
-        "connections_total": total,
+        "connections_total": total + int(meta.get("connections_without_url", 0) or 0),
+        "connections_listable": total,
+        "connections_without_url": int(meta.get("connections_without_url", 0) or 0),
         "connected_on_age": buckets,
         "never_messaged_1to1": len(never),
         "only_group_chats": sum(1 for p in never if p["group_count"]),
@@ -264,7 +277,8 @@ def network_profile(as_of=None):
         "last_dm_over_3_years": sum(1 for p in people if p["days_since_dm"] is not None and p["days_since_dm"] >= 3 * 365),
         "messaged_in_last_year": sum(1 for p in people if p["days_since_dm"] is not None and p["days_since_dm"] < 365),
         "cap": LINKEDIN_CONNECTION_CAP,
-        "headroom": LINKEDIN_CONNECTION_CAP - total,
+        "headroom": LINKEDIN_CONNECTION_CAP - total - int(meta.get("connections_without_url", 0) or 0),
+        "never_replied": sum(1 for p in people if p["in_count"] and not p["out_count"]),
         "messages": {
             "total": int(meta.get("messages", 0) or 0),
             "earliest": meta.get("earliest_message_at", ""), "latest": meta.get("latest_message_at", ""),

@@ -36,6 +36,8 @@ CONNECTIONS = [
     ("Gina", "Gale", "gina-gale", "Acme Corp", "Product Manager", "07 Jul 2019"),
     ("Hank", "Hill", "hank-hill", "Stark", "Technical Recruiter", "02 Feb 2014"),
     ("Ivy", "Ives", "ivy-ives", "Wayne", "Student", "sometime"),
+    ("Pete", "Pitch", "pete-pitch", "Vendorly", "Sales Rep", "01 Jan 2020"),
+    ("Nora", "Null", "", "Hidden", "Member", "01 Jan 2016"),   # LinkedIn blanks some URLs
 ]
 
 MESSAGES = [
@@ -45,6 +47,7 @@ MESSAGES = [
     ("c2", "bob-baker-1a2b", ["me-owner"], "2021-05-01 12:00:00 UTC", "Congrats on the launch"),
     ("c3", "me-owner", ["carol-cole", "dave-dunn"], "2025-02-01 15:30:00 UTC", "Group hello"),
     ("c4", "zoe-zed", ["me-owner"], "2026-01-01 08:00:00 UTC", "Not a connection"),
+    ("c5", "pete-pitch", ["me-owner"], "2024-01-01 08:00:00 UTC", "Quick question about your stack"),
 ]
 
 
@@ -58,7 +61,7 @@ def build_zip(path):
         w = csv.writer(buf)
         w.writerow(["First Name", "Last Name", "URL", "Email Address", "Company", "Position", "Connected On"])
         for f, l, s, c, p, d in CONNECTIONS:
-            w.writerow([f, l, url(s), "", c, p, d])
+            w.writerow([f, l, url(s) if s else "", "", c, p, d])
         z.writestr(base + "Connections.csv", buf.getvalue())
 
         buf = io.StringIO()
@@ -116,11 +119,11 @@ class LinkedInBotTest(unittest.TestCase):
     def test_ingest_loads_every_file_and_keeps_v1_tables(self):
         meta = json.loads(self.run_cli("ingest").stdout)
         self.assertEqual(meta["schema_version"], "2")
-        self.assertEqual(meta["connections"], "9")
-        self.assertEqual(meta["messages"], "5")          # guide_messages.csv was not mistaken for it
+        self.assertEqual(meta["connections"], "11")
+        self.assertEqual(meta["messages"], "6")          # guide_messages.csv was not mistaken for it
         self.assertEqual(meta["invitations"], "1")
-        self.assertEqual(meta["dm_counterparts"], "5")   # alice, bob, carol, dave, zoe
-        self.assertEqual(meta["dm_counterparts_connected"], "4")
+        self.assertEqual(meta["dm_counterparts"], "6")   # alice, bob, carol, dave, zoe, pete
+        self.assertEqual(meta["dm_counterparts_connected"], "5")
         con = sqlite3.connect(self.db)
         cols = [r[1] for r in con.execute("PRAGMA table_info(connections)")]
         self.assertEqual(cols, ["First Name", "Last Name", "URL", "Email Address", "Company", "Position", "Connected On"])
@@ -145,7 +148,7 @@ class LinkedInBotTest(unittest.TestCase):
         out = self.run_cli("find-connections", "--title", "recruiter", script=LEGACY).stdout
         self.assertIn("Hank Hill", out)
         self.assertIn("Found 1 connection(s):", out)
-        self.assertIn("Connections: 9", self.run_cli("stats", script=LEGACY).stdout)
+        self.assertIn("Connections: 11", self.run_cli("stats", script=LEGACY).stdout)
         self.assertIn("Thoughts on AI", self.run_cli("search-shares", "--query", "ai", script=LEGACY).stdout)
 
     def test_v1_database_is_rebuilt(self):
@@ -169,14 +172,17 @@ class LinkedInBotTest(unittest.TestCase):
 
     def test_network_profile_offers_presets_with_counts(self):
         prof = json.loads(self.run_cli("network-profile", "--json", "--as-of", AS_OF).stdout)
-        self.assertEqual(prof["connections_total"], 9)
-        self.assertEqual(prof["headroom"], 30000 - 9)
+        self.assertEqual(prof["connections_total"], 11)
+        self.assertEqual(prof["connections_without_url"], 1)
+        self.assertEqual(prof["connections_listable"], 10)
+        self.assertEqual(prof["headroom"], 30000 - 11)
+        self.assertEqual(prof["never_replied"], 2)   # Bob (2021) and Pete (2024) wrote in, no reply
         self.assertEqual(prof["connected_on_age"]["date unreadable"], 1)
         self.assertEqual(prof["never_messaged_1to1"], 7)
         self.assertEqual(prof["only_group_chats"], 2)
         counts = {p["preset"]: p["count"] for p in prof["presets"]}
         self.assertEqual(counts, {"old-never-messaged": 4, "old-quiet": 6, "never-messaged": 7,
-                                  "recent-never-messaged": 1})
+                                  "never-replied": 2, "recent-never-messaged": 1})
 
     def test_old_never_messaged_ranked(self):
         s = self.cleanup_json("--preset", "old-never-messaged")
@@ -190,6 +196,12 @@ class LinkedInBotTest(unittest.TestCase):
         self.assertIn("Bob Baker", names)       # last DM 2021, over 3 years
         self.assertNotIn("Alice Able", names)   # messaged last month
         self.assertNotIn("Ivy Ives", names)     # unreadable date never lands in an age-based group
+
+    def test_never_replied(self):
+        s = self.cleanup_json("--preset", "never-replied")
+        self.assertEqual(self.names(s), ["Bob Baker", "Pete Pitch"])
+        self.assertTrue(all("you never replied" in r["reasons"] for r in s["top"]))
+        self.assertNotIn("Alice Able", self.names(self.cleanup_json("--never-replied")))  # she got a reply
 
     def test_group_chats_can_count(self):
         s = self.cleanup_json("--preset", "old-never-messaged", "--count-group-as-dm")

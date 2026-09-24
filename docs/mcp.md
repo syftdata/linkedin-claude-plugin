@@ -12,7 +12,7 @@ transport is wired.** A local ZIP path and the watch folder work today; HTTP upl
 | `search_shares` | `query`, `limit` | the user's posts matching the keyword |
 | `find_connections` | `title`, `company` | 1st-degree connections by substring |
 | `network_profile` | `as_of` (optional) | snapshot + every cleanup preset with its live count |
-| `cleanup_candidates` | `preset` or thresholds, `keep_company[]`, `keep_title[]`, `only_title[]`, `limit`, `as_of` | `{summary, rows, next}`; refuses with no preset or thresholds |
+| `cleanup_candidates` | `preset` or thresholds (incl. `never_replied`), `keep_company[]`, `keep_title[]`, `only_title[]`, `limit`, `as_of` | `{summary, rows, next}`; refuses with no preset or thresholds |
 
 JSON schemas: `TOOLS` in `skills/linkedin/mcp_tools.py`. Every tool calls the same loader and queries as the CLI,
 so CLI and MCP results match.

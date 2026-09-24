@@ -71,6 +71,7 @@ Ask Claude to "clean up my LinkedIn network" or "who haven't I talked to in year
    - Connected 5+ years ago and never messaged
    - Connected 2+ years ago and no DM in the last 3 years
    - Never messaged at all
+   - They messaged you and you never replied (usually a pitch)
    - Connected in the last 12 months and never messaged
    - Custom thresholds
 3. **Asks how many** you want to free up and **who to always keep** (company names, title words).
@@ -87,7 +88,8 @@ python3 $L cleanup-candidates --connected-before 5y --no-dm-since 3y --export ~/
 
 CSV columns: `name, company, title, profile_url, connected_on, last_dm_at, last_dm_preview, days_since_connect,
 days_since_dm, cleanup_score, reasons`. `last_dm_preview` is only filled with `--with-preview`.
-Group chats don't count as talking unless you pass `--count-group-as-dm`.
+Group chats don't count as talking unless you pass `--count-group-as-dm`. LinkedIn leaves the profile URL blank for
+some connections; those are counted in your total but can't be matched to messages or listed.
 
 **Nothing is removed.** Removing a connection is manual on LinkedIn and can't be undone without a new request they
 accept.

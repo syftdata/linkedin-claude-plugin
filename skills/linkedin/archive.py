@@ -209,20 +209,23 @@ def _build_dm_tables(con, rows, owner):
 
     con.execute("""CREATE TABLE last_dm (
         counterpart_slug TEXT PRIMARY KEY, dm_count INTEGER, first_dm_at TEXT, last_dm_at TEXT,
-        last_dm_direction TEXT, last_dm_preview TEXT, group_count INTEGER, last_group_at TEXT)""")
+        last_dm_direction TEXT, last_dm_preview TEXT, group_count INTEGER, last_group_at TEXT,
+        out_count INTEGER, in_count INTEGER)""")
     per = {}
     for cid, sent_at, sender, p, is_group, direction, preview in sorted(events, key=lambda e: e[1]):
-        d = per.setdefault(p, {"dm_count": 0, "first": "", "last": "", "dir": "", "preview": "", "group_count": 0, "last_group": ""})
+        d = per.setdefault(p, {"dm_count": 0, "first": "", "last": "", "dir": "", "preview": "", "group_count": 0,
+                               "last_group": "", "out": 0, "in": 0})
         if is_group:
             d["group_count"] += 1
             d["last_group"] = sent_at
         else:
             d["dm_count"] += 1
+            d["out" if direction == "out" else "in"] += 1
             d["first"] = d["first"] or sent_at
             d["last"], d["dir"], d["preview"] = sent_at, direction, preview
-    con.executemany("INSERT INTO last_dm VALUES (?,?,?,?,?,?,?,?)", [
+    con.executemany("INSERT INTO last_dm VALUES (?,?,?,?,?,?,?,?,?,?)", [
         (p, d["dm_count"], d["first"] or None, d["last"] or None, d["dir"] or None, d["preview"] or None,
-         d["group_count"], d["last_group"] or None) for p, d in per.items()])
+         d["group_count"], d["last_group"] or None, d["out"], d["in"]) for p, d in per.items()])
     return events
 
 
@@ -278,6 +281,8 @@ def load_export(zip_path, target_db=None, log=print):
             stats.update({
                 "owner_slug": owner,
                 "connections_indexed": len(connected),
+                # LinkedIn blanks the URL for some members; they can't be joined to messages or listed for cleanup.
+                "connections_without_url": sum(1 for r in conn_rows if not slug_from_url(_col(r, "URL", "Profile URL"))),
                 "connections_with_date": con.execute("SELECT COUNT(*) FROM connections_index WHERE connected_on != ''").fetchone()[0],
                 "dm_counterparts": len(counterparts),
                 "dm_counterparts_connected": len(counterparts & connected),
