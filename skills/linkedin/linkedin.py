@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import archive  # noqa: E402
 import cleanup  # noqa: E402
 import search  # noqa: E402
+import syft_leads  # noqa: E402
 
 
 def _print_connections(rows, suffix=""):
@@ -167,6 +168,20 @@ def cmd_cleanup_candidates(a):
     print(f"\nNext: {cleanup.PASS2_MESSAGE}\n")
 
 
+def cmd_syft_leads(a):
+    if a.csv:
+        raw = syft_leads.leads_from_csv(a.csv)
+    elif a.title or a.company or a.keywords:
+        raw = syft_leads.leads_from_connections(a.title, a.company, a.keywords)
+    else:
+        raise ValueError("Pick a source: --csv PATH, or --title / --company / --keywords to use your connections.")
+    out = syft_leads.build(raw, a.offset, a.limit)
+    if a.out:
+        Path(a.out).expanduser().write_text(json.dumps(out, indent=2))
+        out = {k: v for k, v in out.items() if k != "leads"} | {"written_to": str(Path(a.out).expanduser())}
+    print(json.dumps(out, indent=2))
+
+
 def build_parser():
     p = ArgumentParser(description="LinkedIn bot: ingest, search and clean up your LinkedIn data export.")
     sub = p.add_subparsers(dest="command")
@@ -210,6 +225,15 @@ def build_parser():
     s.add_argument("--as-of", type=date.fromisoformat, default=None, help="YYYY-MM-DD, default today")
     s.add_argument("--icp", help="pass 2, not implemented (Syft / Rolodex)")
     s.add_argument("--persona", help="pass 2, not implemented (Syft / Rolodex)")
+
+    s = sub.add_parser("syft-leads", help="lead objects for the Syft MCP enqueue_leads tool (sends nothing)")
+    s.add_argument("--csv", help="any CSV with a LinkedIn profile column (cleanup CSV, Connections.csv, Sales Nav)")
+    s.add_argument("--title", default="", help="or: your connections whose title contains this")
+    s.add_argument("--company", default="", help="or: your connections whose company contains this")
+    s.add_argument("--keywords", nargs="+", help="or: your connections matching every keyword (title + company)")
+    s.add_argument("--offset", type=int, default=0, help="skip this many leads (for sending in chunks)")
+    s.add_argument("--limit", type=int, help=f"at most this many leads (the skill sends {syft_leads.CHUNK} per call)")
+    s.add_argument("--out", help="write the full JSON here and print only the summary")
     return p
 
 
@@ -217,7 +241,7 @@ COMMANDS = {
     "search-shares": cmd_search_shares, "find-connections": cmd_find_connections,
     "search-comments": cmd_search_comments, "search-connections-keywords": cmd_search_connections_keywords,
     "stats": cmd_stats, "ingest": cmd_ingest, "network-profile": cmd_network_profile,
-    "cleanup-candidates": cmd_cleanup_candidates,
+    "cleanup-candidates": cmd_cleanup_candidates, "syft-leads": cmd_syft_leads,
 }
 
 
@@ -230,13 +254,15 @@ def main(argv=None):
     if a.command == "cleanup-candidates" and (a.icp or a.persona):
         print(cleanup.PASS2_MESSAGE, file=sys.stderr)
         sys.exit(2)
-    try:
-        # Progress goes to stderr so --json output stays parseable.
-        archive.ensure_db_current(zip_path=getattr(a, "zip", None), force=a.command == "ingest",
-                                  log=lambda m: print(m, file=sys.stderr))
-    except archive.NoExportError as e:
-        print(f"❌ {e}", file=sys.stderr)
-        sys.exit(1)
+    # A CSV handed to syft-leads needs no export loaded.
+    if not (a.command == "syft-leads" and a.csv):
+        try:
+            # Progress goes to stderr so --json output stays parseable.
+            archive.ensure_db_current(zip_path=getattr(a, "zip", None), force=a.command == "ingest",
+                                      log=lambda m: print(m, file=sys.stderr))
+        except archive.NoExportError as e:
+            print(f"❌ {e}", file=sys.stderr)
+            sys.exit(1)
     try:
         COMMANDS[a.command](a)
     except ValueError as e:

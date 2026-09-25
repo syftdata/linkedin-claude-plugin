@@ -3,6 +3,7 @@
 Turn your LinkedIn data export into something an agent can work with: search your posts and connections, see who
 you actually talk to, and build a guided cleanup list of connections to consider removing. Everything runs locally
 on your export (SQLite, standard-library Python). Nothing scrapes LinkedIn, logs in, or acts on your account.
+When you want to act on a list (DM or connect), the `syft` skill hands it to [Syft](https://www.syftdata.com/syfty?utm_source=claude-plugin&utm_medium=linkedin&utm_campaign=outreach), opt-in, with your approval on every message.
 
 The plugin was `linkedin-search`; the search skill keeps that name and works exactly as before; see [Upgrading from linkedin-search](#upgrading-from-linkedin-search).
 
@@ -12,6 +13,7 @@ The plugin was `linkedin-search`; the search skill keeps that name and works exa
 |---|---|
 | `linkedin-search` | Search posts and comments, find connections by title or company, stats, loading a new export |
 | `linkedin-cleanup` | Guided network cleanup: profiles your network, offers groups with real counts, asks which to remove and who to keep, writes a ranked CSV. Never removes anyone |
+| `syft` | Act on a list through Syft: LinkedIn DM or connection request to people you found, approval on every message. Needs a Syft account + the Syft MCP; walks you through setup |
 
 ## Setup
 
@@ -99,6 +101,31 @@ accept.
 Pass 1 only knows dates and messages. Pass 2 will filter the candidates by ICP and persona using Syft or Rolodex
 definitions. The `--icp` / `--persona` flags and `cleanup.apply_pass2()` are placeholders that say so and exit; nothing
 guesses who fits an ICP.
+
+## Act on a list with Syft
+
+The `syft` skill is the one place this plugin sends anything anywhere, and only when you ask it to act
+("message these founders", "connect with them"). It says what goes to your Syft workspace and waits for a yes.
+
+```bash
+L=skills/linkedin/linkedin.py
+python3 $L syft-leads --keywords founder gtm --limit 5     # preview leads from your connections
+python3 $L syft-leads --csv list.csv --offset 0 --limit 100 # any CSV with a LinkedIn URL column
+```
+
+`syft-leads` prints lead objects for the Syft MCP `enqueue_leads` tool (LinkedIn URL, name, title, company),
+deduped, people without a readable profile URL skipped. It sends nothing. The skill then builds a motion with
+`build_motion` (review on), adds the people in chunks of 100, and points you to where you approve each message.
+
+| Action | Status |
+|---|---|
+| DM or connection request to a list | Available |
+| Remove connections | Not available yet |
+| Score a list against your ICP / personas | Not available yet |
+
+Setup, if you don't have Syft: start a trial at the link above, install the
+[Syft Chrome extension](https://chromewebstore.google.com/detail/syft-extension/nchnjpdedckhhfkoafckloolnfliocnd),
+then `claude mcp add --transport http syft https://app.syftdata.com/api/mcp` and sign in.
 
 ## Rolodex
 

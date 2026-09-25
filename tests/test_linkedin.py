@@ -262,6 +262,64 @@ class LinkedInBotTest(unittest.TestCase):
         self.assertIn("Pass 2", p.stderr)
         self.assertFalse(out.exists())
 
+    # --- syft-leads (hand-off to the Syft MCP) --------------------------------------------------------------------
+
+    def syft_leads(self, *args, env=None):
+        p = subprocess.run([sys.executable, str(CLI), "syft-leads", *args], env=env or self.env, capture_output=True,
+                           text=True, stdin=subprocess.DEVNULL, check=True)
+        return json.loads(p.stdout)
+
+    def test_syft_leads_from_connections(self):
+        out = self.syft_leads("--title", "engineer")
+        self.assertEqual(out["total"], 1)
+        self.assertEqual(out["leads"], [{"linkedin": url("bob-baker-1a2b"), "name": "Bob Baker", "firstName": "Bob",
+                                         "lastName": "Baker", "title": "Engineer", "company": "Contoso"}])
+        hidden = self.syft_leads("--company", "hidden")     # Nora has no profile URL: counted, never guessed
+        self.assertEqual((hidden["total"], hidden["skipped_no_url"]), (0, 1))
+
+    def test_syft_leads_from_any_csv_without_an_export(self):
+        t = Path(self.tmp.name)
+        f = t / "salesnav.csv"
+        f.write_text(
+            "Notes:\n\"Exported from somewhere\"\n\n"
+            "First Name,Last Name,URL,Company,Position\n"
+            "Ana,Avila,https://www.linkedin.com/in/ana-avila/?miniProfile=x,Alpha,Founder\n"
+            "Ana,Avila,https://linkedin.com/in/Ana-Avila,Alpha,Founder\n"      # same person, different spelling
+            "Ben,Bryce,in/ben-bryce,Beta,CEO\n"                               # bare handle
+            "Cy,Cole,,Gamma,CTO\n")                                           # no URL
+        empty = t / "no-export"
+        empty.mkdir(exist_ok=True)
+        env = dict(os.environ, LINKEDIN_EXPORTS_DIR=str(empty), LINKEDIN_DB_PATH=str(empty / "data.db"))
+        out = self.syft_leads("--csv", str(f), env=env)
+        self.assertEqual((out["total"], out["duplicates_removed"], out["skipped_no_url"]), (2, 1, 1))
+        self.assertEqual([x["linkedin"] for x in out["leads"]], [url("ana-avila"), url("ben-bryce")])
+        self.assertEqual(out["leads"][1]["title"], "CEO")
+        self.assertFalse((empty / "data.db").exists())      # a CSV source never loads an export
+
+        cleanup_csv = t / "cleanup.csv"                      # the cleanup skill's own columns
+        cleanup_csv.write_text("name,company,title,profile_url\nZed Zane,Omega,VP Sales,https://www.linkedin.com/in/zed\n")
+        lead = self.syft_leads("--csv", str(cleanup_csv), env=env)["leads"][0]
+        self.assertEqual((lead["firstName"], lead["lastName"], lead["company"]), ("Zed", "Zane", "Omega"))
+
+    def test_syft_leads_chunks_and_needs_a_source(self):
+        everyone = self.syft_leads("--keywords", "a")["total"]
+        first = self.syft_leads("--keywords", "a", "--limit", "2")
+        rest = self.syft_leads("--keywords", "a", "--offset", "2")
+        self.assertEqual((first["count"], first["total"]), (2, everyone))
+        self.assertEqual(first["count"] + rest["count"], everyone)
+        self.assertFalse({x["linkedin"] for x in first["leads"]} & {x["linkedin"] for x in rest["leads"]})
+        p = self.run_cli("syft-leads", check=False)
+        self.assertEqual(p.returncode, 2)
+        self.assertIn("--csv", p.stderr)
+
+    def test_skill_names_match_folders(self):
+        for skill in (ROOT / "skills").glob("*/SKILL.md"):
+            front = skill.read_text().split("---")[1]
+            name = next(line.split(":", 1)[1].strip() for line in front.splitlines() if line.startswith("name:"))
+            self.assertEqual(name, skill.parent.name)
+        for f in ("outreach.md", "setup.md"):                  # files the syft router points to
+            self.assertTrue((ROOT / "skills" / "syft" / f).is_file(), f)
+
 
 if __name__ == "__main__":
     unittest.main()
