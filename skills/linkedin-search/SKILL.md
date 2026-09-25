@@ -1,54 +1,51 @@
 ---
 name: linkedin-search
-description: Search your LinkedIn posts/shares by topic, find connections by title or company, and get LinkedIn statistics. Use when analyzing your LinkedIn data, finding specific connections, or reviewing past posts and shares.
+description: Your LinkedIn data export as a queryable database. Search your posts and comments, find connections by title or company, see who you message, and get stats. Use for any question about the user's own LinkedIn activity or network. For pruning connections, use the linkedin-cleanup skill.
 allowed-tools: Read, Bash(python3:*)
 ---
 
-# LinkedIn Search
+# LinkedIn search
 
-Search your LinkedIn data archive to find posts by topic, connections by role/company, and view statistics.
+Works on the user's LinkedIn data export (the **larger data archive** ZIP), loaded into a local SQLite database.
+No scraping, no LinkedIn login, standard-library Python only.
 
 ## Setup
 
-1. Download your LinkedIn data export from LinkedIn Settings → Get a copy of your data
-2. Copy the ZIP to the watch folder:
+1. LinkedIn → Settings → Data privacy → Get a copy of your data → **Download larger data archive**. The smaller
+   archive has no `messages.csv`, so anything about who you talk to won't work.
+2. Load it:
    ```bash
-   mkdir -p ~/.linkedin-exports
-   cp ~/Downloads/Complete_LinkedInDataExport_*.zip ~/.linkedin-exports/
+   python3 ${CLAUDE_PLUGIN_ROOT}/skills/linkedin/linkedin.py ingest --zip ~/Downloads/Complete_LinkedInDataExport_*.zip
    ```
+   Or drop the ZIP in `~/.linkedin-exports/`. The newest ZIP there is loaded automatically on the next command.
 
-That's it! Dependencies install automatically on first use.
+## What is in the export
 
-## Usage
+| File | What it is | Table |
+|---|---|---|
+| `Connections.csv` | People you are connected to (accepted 1st-degree), with a day-level `Connected On` | `connections`, `connections_index` |
+| `messages.csv` | DMs, full UTC timestamps, participants by profile URL | `messages`, `dm_events`, `last_dm` |
+| `Invitations.csv` | Connection requests sent and received (pending history). Not your connections | `invitations` |
+| `Shares.csv`, `Comments.csv`, `Reactions.csv` | Your posts, comments, reactions | `shares`, `comments`, `reactions` |
 
-**Search posts/shares:**
+## Commands
+
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/linkedin-search/linkedin_search.py search-shares --query "AI"
+L=${CLAUDE_PLUGIN_ROOT}/skills/linkedin/linkedin.py
+python3 $L search-shares --query "AI"                          # your posts
+python3 $L find-connections --title "founder" --company "microsoft"
+python3 $L search-connections-keywords --keywords founder gtm   # every keyword in title + company
+python3 $L search-comments --query "pricing"
+python3 $L stats
+python3 $L ingest [--zip PATH]                                  # reload now, prints what loaded
 ```
 
-**Find connections:**
-```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/linkedin-search/linkedin_search.py find-connections --title "founder" --company "microsoft"
-```
-
-**Multi-keyword search:**
-```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/linkedin-search/linkedin_search.py search-connections-keywords --keywords founder gtm
-```
-
-**Get statistics:**
-```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/linkedin-search/linkedin_search.py stats
-```
-
-## How it works
-
-- First query: auto-installs deps, extracts ZIP, loads to SQLite, creates indexes
-- Subsequent queries: uses cached database (instant)
-- New export: auto-detects and reloads when newer ZIP found in `~/.linkedin-exports/`
+For "who haven't I talked to", "clean up my network", "I'm near the 30,000 cap": use the **linkedin-cleanup** skill.
 
 ## Examples
 
 "Did I write about AI?" → `search-shares --query "AI"`
 "Find GTM agency founders" → `search-connections-keywords --keywords founder gtm`
-"How many posts?" → `stats`
+"How many connections do I have?" → `stats`
+
+`linkedin_search.py` in this folder is the v1 entry point and still forwards to this CLI.

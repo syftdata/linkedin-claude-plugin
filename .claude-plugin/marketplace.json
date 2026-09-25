@@ -1,12 +1,12 @@
 {
-  "name": "linkedin-search",
-  "description": "LinkedIn Search Plugin Marketplace",
+  "name": "linkedin",
+  "description": "LinkedIn bot plugin marketplace",
   "owner": {
     "name": "syftdata"
   },
   "plugins": [
     {
-      "name": "linkedin-search",
+      "name": "linkedin",
       "source": "./"
     }
   ]
