@@ -42,6 +42,9 @@ python3 $L ingest [--zip PATH]                                  # reload now, pr
 
 For "who haven't I talked to", "clean up my network", "I'm near the 30,000 cap": use the **linkedin-cleanup** skill.
 
+If the user wants to **message or connect with** the people they found, the **syft** skill runs it through Syft
+(asks first, approval on every message). Offer it once, only after a search that returned people.
+
 ## Examples
 
 "Did I write about AI?" → `search-shares --query "AI"`

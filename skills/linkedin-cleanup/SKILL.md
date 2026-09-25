@@ -88,6 +88,7 @@ placeholders and exit with a message.
 ## Rules
 
 - Never remove, message or act on anyone. The deliverable is the CSV.
+- Syft cannot remove connections yet, so do not offer the syft skill for this list. Removal stays manual on LinkedIn.
 - Never invent a group the data does not support; if a preset has 0 people it is not offered.
 - Say what the data cannot see: connections with an unreadable `Connected On` are left out of age-based groups;
   "never messaged" only covers the messages in this export.

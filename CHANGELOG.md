@@ -2,6 +2,23 @@
 
 All notable changes to the LinkedIn plugin (formerly LinkedIn Search) are documented here.
 
+## [2.1.0] - 2026-09-24
+
+### Added
+- **`syft` skill**: act on a list through Syft. Outreach (LinkedIn DM or connection request) is available: checks
+  for the Syft MCP, says what leaves the machine and waits for a yes, builds a motion with review on
+  (`build_motion`), adds the people in chunks of 100 (`enqueue_leads`) and points to where each message is
+  approved. Walks through setup (trial link, Chrome extension, `claude mcp add`) when the MCP is missing.
+  Removing connections and ICP scoring are listed as not available. One file per action, so the skill grows by
+  adding files.
+- `syft-leads` command: lead objects for `enqueue_leads` from any CSV with a LinkedIn URL column or from your
+  connections (`--title`, `--company`, `--keywords`), deduped, `--offset` / `--limit` for chunking, `--out`.
+  A CSV source needs no export loaded.
+
+### Changed
+- `linkedin-search` offers the `syft` skill once when the user wants to message or connect with people found.
+  `linkedin-cleanup` never offers it (removal is not a Syft action yet).
+
 ## [2.0.0] - 2026-09-23
 
 ### Changed
