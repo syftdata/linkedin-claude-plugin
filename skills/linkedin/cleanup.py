@@ -39,14 +39,16 @@ _DUR = re.compile(r"^\s*(\d+)\s*([dwmy])\s*$", re.I)
 
 
 def parse_duration(text):
-    """'18m' -> 540 days, '5y' -> 1825, '2w' -> 14, '90d' -> 90. Months are 30 days, years 365."""
+    """'18m' -> 548 days, '5y' -> 1825, '2w' -> 14, '90d' -> 90. A month is 365/12 days, a year 365."""
     if text in (None, ""):
         return None
     m = _DUR.match(str(text))
     if not m:
         raise ValueError(f"Bad duration {text!r}: use a number and d / w / m / y, e.g. 18m or 5y")
     n, unit = int(m.group(1)), m.group(2).lower()
-    return n * {"d": 1, "w": 7, "m": 30, "y": 365}[unit]
+    if unit == "m":
+        return round(n * 365 / 12)      # 12m = 365 days, not 360
+    return n * {"d": 1, "w": 7, "y": 365}[unit]
 
 
 @dataclass
@@ -60,6 +62,7 @@ class Criteria:
     keep_company: list = field(default_factory=list)   # never list anyone whose Company contains one of these
     keep_title: list = field(default_factory=list)     # never list anyone whose Position contains one of these
     only_title: list = field(default_factory=list)     # only list people whose Position contains one of these
+    keep_company_list: list = field(default_factory=list)  # [(label, words)] companies never to list (customers)
     limit: int = None
     preset: str = None
 
@@ -76,6 +79,15 @@ class Criteria:
         return cls(preset=name, **spec)
 
 
+def _anchor():
+    """Default "as of" day: the day the export was made (ages are about the snapshot), else today."""
+    try:
+        from invites import export_date
+        return export_date() or date.today()
+    except Exception:
+        return date.today()
+
+
 def _days_between(iso, as_of):
     if not iso:
         return None
@@ -85,28 +97,32 @@ def _days_between(iso, as_of):
 
 def load_people(as_of=None):
     """Every connection with its DM facts. Connections with no parseable profile URL are skipped (counted)."""
-    as_of = as_of or date.today()
+    as_of = as_of or _anchor()
     con = connect()
     names = table_names(con)
     if "connections_index" not in names:
         raise RuntimeError("Database is from v1 or empty. Run `ingest` to reload the export.")
     has_dm = "last_dm" in names
     sql = """SELECT c.slug, c.first_name, c.last_name, c.url, c.company, c.position, c.connected_on, c.connected_on_raw,
-                    {dm}
+                    c.email, {dm}
              FROM connections_index c {join}""".format(
         dm="d.dm_count, d.last_dm_at, d.last_dm_direction, d.last_dm_preview, d.group_count, d.last_group_at, "
-           "d.out_count, d.in_count" if has_dm else "0, NULL, NULL, NULL, 0, NULL, 0, 0",
+           "d.out_count, d.in_count, d.opened_by, d.opened_at, d.last_dm_text, d.opened_text" if has_dm else
+           "0, NULL, NULL, NULL, 0, NULL, 0, 0, NULL, NULL, NULL, NULL",
         join="LEFT JOIN last_dm d ON d.counterpart_slug = c.slug" if has_dm else "")
     people = []
     for r in con.execute(sql).fetchall():
         people.append({
-            "slug": r[0], "name": f"{r[1] or ''} {r[2] or ''}".strip(), "profile_url": r[3], "company": r[4] or "",
+            "slug": r[0], "name": " ".join(f"{r[1] or ''} {r[2] or ''}".split()), "first_name": r[1] or "",
+            "last_name": r[2] or "", "profile_url": r[3], "company": r[4] or "",
             "title": r[5] or "", "connected_on": r[6] or "", "connected_on_raw": r[7] or "",
-            "dm_count": r[8] or 0, "last_dm_at": r[9] or "", "last_dm_direction": r[10] or "",
-            "last_dm_preview": r[11] or "", "group_count": r[12] or 0, "last_group_at": r[13] or "",
-            "days_since_connect": _days_between(r[6], as_of), "days_since_dm": _days_between(r[9], as_of),
-            "days_since_group": _days_between(r[13], as_of),
-            "out_count": r[14] or 0, "in_count": r[15] or 0,
+            "email": r[8] or "",
+            "dm_count": r[9] or 0, "last_dm_at": r[10] or "", "last_dm_direction": r[11] or "",
+            "last_dm_preview": r[12] or "", "group_count": r[13] or 0, "last_group_at": r[14] or "",
+            "days_since_connect": _days_between(r[6], as_of), "days_since_dm": _days_between(r[10], as_of),
+            "days_since_group": _days_between(r[14], as_of),
+            "out_count": r[15] or 0, "in_count": r[16] or 0, "opened_by": r[17] or "", "opened_at": r[18] or "",
+            "last_dm_text": r[19] or "", "opened_text": r[20] or "",
         })
     return people
 
@@ -176,11 +192,16 @@ def matches(p, crit):
 
 def candidates(crit, as_of=None, people=None, with_preview=False):
     """Returns (rows, summary). rows are ranked; summary explains every exclusion so counts reconcile."""
-    as_of = as_of or date.today()
+    as_of = as_of or _anchor()
     people = people if people is not None else load_people(as_of)
-    matched, kept = [], {"company": 0, "title": 0}
+    matched, kept = [], {"company": 0, "title": 0, "list": 0}
+    if crit.keep_company_list:
+        from people import company_matches
     for p in people:
         if not matches(p, crit):
+            continue
+        if crit.keep_company_list and any(company_matches(p["company"], w) for _, w in crit.keep_company_list):
+            kept["list"] += 1
             continue
         if crit.keep_company and _contains_any(p["company"], crit.keep_company):
             kept["company"] += 1
@@ -203,7 +224,8 @@ def candidates(crit, as_of=None, people=None, with_preview=False):
     } for p in matched]
     summary = {
         "definition": describe(crit, as_of), "count": len(rows), "matched_before_limit": total_matched,
-        "kept_by_company": kept["company"], "kept_by_title": kept["title"], "connections_total": len(people),
+        "kept_by_company": kept["company"], "kept_by_title": kept["title"], "kept_by_list": kept["list"],
+        "connections_total": len(people),
         "as_of": as_of.isoformat(),
     }
     return rows, summary
@@ -221,7 +243,7 @@ def _years(days):
 
 def describe(crit, as_of=None):
     """One line the agent reads back for confirmation."""
-    as_of = as_of or date.today()
+    as_of = as_of or _anchor()
     parts = []
     if crit.preset:
         parts.append(f"preset {crit.preset}")
@@ -248,7 +270,7 @@ def describe(crit, as_of=None):
 
 def network_profile(as_of=None):
     """Step 1 of the guided flow: the snapshot, plus every preset with its live count."""
-    as_of = as_of or date.today()
+    as_of = as_of or _anchor()
     con = connect()
     meta = dict(con.execute("SELECT key, value FROM metadata").fetchall()) if "metadata" in table_names(con) else {}
     people = load_people(as_of)
