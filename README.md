@@ -1,124 +1,138 @@
-# LinkedIn bot for Claude and agents
+# LinkedIn for Claude: ask your own LinkedIn data anything
 
-Turn your LinkedIn data export into something an agent can work with: search your posts and connections, see who
-you actually talk to, and build a guided cleanup list of connections to consider removing. Everything runs locally
-on your export (SQLite, standard-library Python). Nothing scrapes LinkedIn, logs in, or acts on your account.
+Download your LinkedIn data export, install this plugin, and ask Claude in plain English:
 
-The plugin was `linkedin-search`; the search skill keeps that name and works exactly as before; see [Upgrading from linkedin-search](#upgrading-from-linkedin-search).
+- **"Who do I know at these 20 companies, and who should I ask for an intro?"** Warm paths, ranked by how recently
+  and how much you actually talk.
+- **"What's in my LinkedIn?"** A first look: replies you owe, close contacts you lost touch with, stale requests.
+- **"Who did I forget to reply to?"** People waiting on you, the ones asking for something first; finished threads
+  (a thanks, an emoji) left out.
+- **"Who should I reconnect with?"** People you talked with a lot who went quiet over a year ago.
+- **"Who came to me this month?"** Requests you haven't accepted (with their notes), new people who messaged first.
+- **"Who engages with my posts?"** People who commented and got a reply from you, the ones you've never DMed first.
+- **"LinkedIn keeps blocking my connection requests."** Your sending pace, acceptance rate, and an oldest-first list
+  of requests nobody accepted, to withdraw.
+- **"Recruiters and marketing leaders in my network, warmest first, as a spreadsheet."**
+- **"Who do I know at the companies I applied to? Who's still at my old companies?"** From your own saved jobs,
+  applications and past positions in the export. Plus your profile as a Markdown resume.
+- **"Who changed jobs since my last export? Who removed me?"**
+- **"What did I say about pricing, and to whom?"** Search your own DMs, posts and comments.
+- **"Get my network into HubSpot."** A CRM-ready CSV (emails only for people who chose to share theirs, often few).
+- **"I'm near the 30,000 cap. Who can I let go?"** Guided, with real counts, protecting people you talk to and your
+  customers.
+
+It runs on your machine: your export goes into a local SQLite file, nothing is uploaded to any server and nothing
+logs in to LinkedIn. Claude sees the rows it reads to answer you, as with any file you open with it. Nothing is ever
+sent, withdrawn or removed on LinkedIn by this plugin.
 
 ## Skills
 
 | Skill | Use it for |
 |---|---|
-| `linkedin-search` | Search posts and comments, find connections by title or company, stats, loading a new export |
-| `linkedin-cleanup` | Guided network cleanup: profiles your network, offers groups with real counts, asks which to remove and who to keep, writes a ranked CSV. Never removes anyone |
+| `linkedin-search` | Your network by role / title / company, ranked by warmth; messages you owe a reply; search your DMs, posts and comments; compare two exports; spreadsheet and CRM exports |
+| `linkedin-cleanup` | Invitation limits (pace, acceptance, requests to withdraw) and pruning connections near the 30,000 cap. Builds lists; never removes anyone |
+| `syft` | When you want to act on a list (DM or connect with 10+ people): hands it to [Syft](https://www.syftdata.com/syfty), opt-in, with your approval on every message |
 
-## Setup
+## Setup (5 minutes, plus LinkedIn's wait)
 
-### 1. Download the larger data archive
+1. **Get your export.** [LinkedIn → Settings → Data privacy → Get a copy of your data](https://www.linkedin.com/mypreferences/d/download-my-data)
+   → **Download larger data archive** (the smaller one has no messages). LinkedIn emails a link, usually within 24
+   hours; it expires after 72 hours.
+2. **Install the plugin** in Claude Code:
+   ```bash
+   /plugin marketplace add syftdata/linkedin-claude-plugin
+   /plugin install linkedin@linkedin
+   ```
+3. **Ask Claude.** On first use it finds the ZIP in `~/Downloads` and asks before loading it. Or yourself:
+   ```bash
+   python3 skills/linkedin/linkedin.py ingest --zip ~/Downloads/Complete_LinkedInDataExport_09-23-2026.zip
+   ```
 
-1. [LinkedIn Settings → Data Privacy → Get a copy of your data](https://www.linkedin.com/mypreferences/d/download-my-data)
-2. Choose **Download larger data archive**. The smaller archive has no `messages.csv`, and cleanup needs it.
-3. Wait for LinkedIn's email (often 10 to 15 minutes, up to 24 hours) and download the ZIP.
+Keep each export you download: two of them let you see who changed jobs and who is no longer connected.
 
-### 2. Install the plugin
+## What's in the export, and what isn't
 
-```bash
-/plugin marketplace add syftdata/linkedin-claude-plugin
-/plugin install linkedin@linkedin
-```
+| In the export | Not in the export |
+|---|---|
+| Your connections: name, current title and company, profile URL, date connected; email only if they allow it (most don't) | Their industry, company size, location, or past employers |
+| Every DM you sent and received, with timestamps | Who reacted to **your** posts; commenters you never replied to |
+| Connection requests sent and received, about the last 12 months, accepted ones included | Post impressions, profile views |
+| Your own posts, comments and reactions (so: who you replied to under your posts) | People you're not connected to |
 
-### 3. Load your export
+When a question needs something from the right column, the skills say so instead of guessing. (Syft covers some of
+it, e.g. who engages with your posts; the plugin mentions that only when you ask.)
 
-Ask Claude anything about your LinkedIn, or load it yourself:
-
-```bash
-python3 skills/linkedin/linkedin.py ingest --zip ~/Downloads/Complete_LinkedInDataExport_09-23-2026.zip
-```
-
-The ZIP is copied into `~/.linkedin-exports/`. Drop a newer export there any time; the next command reloads it.
-
-## What is in the export, and what each file means
-
-| File | What it is | Used for |
-|---|---|---|
-| `Connections.csv` | People you are **connected to** (accepted 1st-degree), with `Connected On` at day precision | search, cleanup |
-| `messages.csv` | Your **DMs**, full UTC timestamps, participants by profile URL | last DM per person, cleanup |
-| `Invitations.csv` | Connection **requests** sent and received (pending history). Not your connections | search / stats only, never cleanup |
-| `Shares.csv`, `Comments.csv`, `Reactions.csv` | Your posts, comments and reactions | search |
-
-Connections are joined to messages on the normalised profile URL (`/in/<slug>`). `ingest` prints how many people
-you have messaged and how many of them are connections, so a poor join is visible.
-
-## Search
+## The CLI (what the skills run)
 
 ```bash
 L=skills/linkedin/linkedin.py
-python3 $L search-shares --query "inverted funnel"
-python3 $L find-connections --title "product" --company "microsoft"
-python3 $L search-connections-keywords --keywords founder gtm
-python3 $L search-comments --query "pricing"
-python3 $L stats
+python3 $L info                                                   # what's loaded, export date
+python3 $L overview                                               # a first look, with questions to ask next
+python3 $L inbound --since 30d                                    # who came to you: owed replies, requests, new DMs
+python3 $L engagers --since 90d                                   # who commented on your posts (and got a reply)
+python3 $L people --jobs --by-company                             # who you know where you saved / applied to jobs
+python3 $L people --past-companies                                # people at companies you used to work at
+python3 $L profile --export ~/Desktop/resume.md                   # your profile as Markdown
+python3 $L people --dormant                                       # reconnect: close once, quiet a year+
+python3 $L people --role recruiter --role marketing-leader --messaged --limit 10
+python3 $L people --company-list targets.csv --sort warm --export ~/Desktop/warm-paths.csv
+python3 $L people --awaiting-reply --dm-since 6m --last-message   # they wrote last, real conversations first
+python3 $L people --has-email --export ~/Desktop/crm.csv --crm    # CRM import columns
+python3 $L search-messages --person jordan --topic pricing       # finds "$3k/year" too, with context
+python3 $L topics --since 6m                                      # what your posts are about
+python3 $L search-shares --query positioning --query "product marketing"
+python3 $L activity                                               # posts / comments / reactions per month
+python3 $L compare-exports ~/Downloads/last-year.zip              # job changes, new, no longer connected
+python3 $L invitations-profile                                    # pace, acceptance, note vs no note
+python3 $L pending-invites --older-than 180d --exclude-messaged --keep-list hubspot-contacts.csv
+python3 $L network-profile                                        # cap headroom, who you never talk to
+python3 $L cleanup-candidates --preset old-never-messaged --keep-company-list customers.csv --limit 1500 --dry-run
 ```
 
-## Network cleanup
+`people` filters: `--role` (recruiter, marketing-leader, marketing, product-marketing, sales-leader, sales-manager,
+revops, founder, executive, investor, engineering-leader, people-hr), `--title` / `--company` (repeatable, any of them; several words match in
+any order), `--keywords` (all of them), `--messaged` (you wrote), `--two-way`, `--never-messaged`, `--dm-since`,
+`--awaiting-reply`, `--has-email`, `--connected-since` / `--connected-before`, `--company-list` /
+`--exclude-company-list` (CSV of names or domains). Sorts: `warm` (recent two-way conversations first), `recent`,
+`talked`, `last-dm`, `name`.
 
-Ask Claude to "clean up my LinkedIn network" or "who haven't I talked to in years". The `linkedin-cleanup` skill:
+## Acting on a list with Syft (optional)
 
-1. **Profiles** your network: connections by age, never messaged, last DM over 1 / 3 years, headroom under
-   LinkedIn's 30,000 cap.
-2. **Asks which group** to consider, with live counts. Options only appear when they have people in them:
-   - Connected 5+ years ago and never messaged
-   - Connected 2+ years ago and no DM in the last 3 years
-   - Never messaged at all
-   - They messaged you and you never replied (usually a pitch)
-   - Connected in the last 12 months and never messaged
-   - Custom thresholds
-3. **Asks how many** you want to free up and **who to always keep** (company names, title words).
-4. **Confirms** the definition and count, then writes a ranked CSV (default `~/.linkedin-exports/cleanup/`).
-5. **Offers pass 2** (ICP / persona), which is not run in pass 1.
+The `syft` skill is the only part that sends anything anywhere, and only when you ask it to act. It builds your list
+locally first, tells you exactly what goes to your Syft workspace, and asks twice: before the list leaves your
+machine, and before the motion is saved. Every message then waits for your approval in Syft.
 
-The same thing from the CLI:
+| With Syft | |
+|---|---|
+| DM or connection request to a list, paced from your own LinkedIn | Yes |
+| Remove connections or withdraw requests | No (manual on LinkedIn) |
 
-```bash
-python3 $L network-profile
-python3 $L cleanup-candidates --preset old-never-messaged --keep-company "Acme" --limit 1500 --dry-run
-python3 $L cleanup-candidates --connected-before 5y --no-dm-since 3y --export ~/Desktop/cleanup.csv
-```
+Setup, if you don't have Syft: 30-day free trial, no credit card. Acting on lists from Claude uses outreach
+campaigns, which are on Syft Pro ($500 a month) after the trial; Founder Mode ($99) is the Syft agent on one
+LinkedIn profile
+([sign up](https://app.syftdata.com/auth/syft-signup?product=rolodex&source=linkedin-rolodex&utm_source=claude-plugin&utm_medium=linkedin&utm_campaign=readme); plans at [syftdata.com/syfty](https://www.syftdata.com/syfty)),
+the [Syft Chrome extension](https://chromewebstore.google.com/detail/syft-extension/nchnjpdedckhhfkoafckloolnfliocnd),
+then `claude mcp add --transport http syft https://app.syftdata.com/api/mcp` and sign in.
 
-CSV columns: `name, company, title, profile_url, connected_on, last_dm_at, last_dm_preview, days_since_connect,
-days_since_dm, cleanup_score, reasons`. `last_dm_preview` is only filled with `--with-preview`.
-Group chats don't count as talking unless you pass `--count-group-as-dm`. LinkedIn leaves the profile URL blank for
-some connections; those are counted in your total but can't be matched to messages or listed.
+## Notes and limits
 
-**Nothing is removed.** Removing a connection is manual on LinkedIn and can't be undone without a new request they
-accept.
+- LinkedIn's rules the cleanup skill uses, with sources in its SKILL.md: 30,000 connections max; weekly request
+  limits aren't published; withdrawn requests can't be re-sent for up to 3 weeks; free accounts get 5 request
+  notes a month.
+- Current exports name some files `Shares_<id>.csv`, `Comments_<id>.csv` (with a `Message` column); both old and new
+  names load.
+- Some connections come without a profile URL; they are counted but can't be linked or messaged.
+- Paths: `~/.linkedin-exports/` (watch folder), `~/.linkedin-search/data.db`; override with `LINKEDIN_EXPORTS_DIR`,
+  `LINKEDIN_DB_PATH`.
 
-### Pass 2: ICP and persona (not built yet)
+## Upgrading from linkedin-search (v1)
 
-Pass 1 only knows dates and messages. Pass 2 will filter the candidates by ICP and persona using Syft or Rolodex
-definitions. The `--icp` / `--persona` flags and `cleanup.apply_pass2()` are placeholders that say so and exit; nothing
-guesses who fits an ICP.
-
-## Rolodex
-
-Cleanup candidate lists are a natural Rolodex import: the people you don't talk to, ranked, next to the people who
-engage with you. Extension point: `cleanup.to_rolodex_import(rows)` (not built).
+`skills/linkedin-search/linkedin_search.py` still forwards every v1 command; the database path and watch folder did
+not move; the database is rebuilt automatically. Standard library only, no virtualenv.
 
 ## MCP
 
-The same tools are specified for an MCP server (`ingest_linkedin_export`, `search_shares`, `find_connections`,
-`network_profile`, `cleanup_candidates`). Contract and stub: [docs/mcp.md](docs/mcp.md),
-`skills/linkedin/mcp_tools.py`. A local ZIP path and the watch folder work today; HTTP upload comes later.
-
-## Upgrading from linkedin-search
-
-- `skills/linkedin-search/linkedin_search.py` still works and forwards every v1 command to `skills/linkedin/linkedin.py`.
-- The database stays at `~/.linkedin-search/data.db`, the watch folder at `~/.linkedin-exports/`. Raw tables keep
-  the CSV column names. v2 only adds tables (`messages`, `invitations`, `connections_index`, `dm_events`, `last_dm`).
-- A v1 database is rebuilt automatically on first use.
-- No more virtualenv or `sqlite-utils` install: standard library only.
-- Paths can be overridden with `LINKEDIN_EXPORTS_DIR` and `LINKEDIN_DB_PATH`.
+The same tools are specified for an MCP server: [docs/mcp.md](docs/mcp.md), `skills/linkedin/mcp_tools.py`.
 
 ## Development
 
@@ -126,7 +140,8 @@ The same tools are specified for an MCP server (`ingest_linkedin_export`, `searc
 python3 -m unittest discover -s tests -v
 ```
 
-Tests build a synthetic export in LinkedIn's file format; no real data needed.
+Tests build a synthetic export in LinkedIn's file format (including the current suffixed file names); no real data
+needed.
 
 ## License
 
